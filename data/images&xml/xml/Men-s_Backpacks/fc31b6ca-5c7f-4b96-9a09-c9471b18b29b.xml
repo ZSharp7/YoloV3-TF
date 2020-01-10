@@ -1,0 +1,38 @@
+<annotation>
+	<folder>Men-s_Backpacks</folder>
+	<filename>fc31b6ca-5c7f-4b96-9a09-c9471b18b29b.jpg</filename>
+	<path>G:\WorkSpace\img_select\input_data\for_detector\Men-s_Backpacks\fc31b6ca-5c7f-4b96-9a09-c9471b18b29b.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>800</width>
+		<height>800</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>Men's Backpacks</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>229</xmin>
+			<ymin>101</ymin>
+			<xmax>646</xmax>
+			<ymax>749</ymax>
+		</bndbox>
+	</object>
+	<object>
+		<name>Tops</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>67</xmin>
+			<ymin>85</ymin>
+			<xmax>722</xmax>
+			<ymax>799</ymax>
+		</bndbox>
+	</object>
+</annotation>
