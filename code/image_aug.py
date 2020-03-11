@@ -113,7 +113,7 @@ if __name__ == '__main__':
     file = f.readlines()
     f.close()
     # 获取classes
-    file_path2 = './data/classes/Men-s_T-shirts__cls.names'
+    file_path2 = './data/classes/classes.names'
     f = open(file_path2, 'r')
     file2 = f.readlines()
     f.close()

@@ -1,10 +1,10 @@
 import tensorflow as tf
 import numpy as np
-import os
 from code.yolov3 import Yolo3
-from code.config import cfg
+from code import config
+cfg = config.cfg
 import os
-
+import time
 
 file_name = './data/yolov3.weights'
 
@@ -32,12 +32,12 @@ def load_weights(var_list, weights_file):
         var1 = var_list[i]
         var2 = var_list[i + 1]
         # do something only if we process conv layer
-        print('var1',var1.name.split('/')[-2],'+',var1.name)
-
+        # print('var1:',var1.name.split('/')[-2],'+',var1.name)
+        if 'darknet53' not in var1.name.split('/')[-3] and 'darknet53' not in var1.name.split('/')[-4]:
+            break
         if 'conv' in var1.name.split('/')[-2]:
-
             # check type of next layer,BatchNorm param first of weight
-            print('var2',var1.name.split('/')[-2],'+',var2.name)
+            # print('var2:',var1.name.split('/')[-2],'+',var2.name)
             if 'batch_norm' in var2.name.split('/')[-2]:
                 # load batch norm params, It's equal to l.biases,l.scales,l.rolling_mean,l.rolling_variance
 
@@ -75,6 +75,8 @@ def load_weights(var_list, weights_file):
                 ptr += num_params
                 print(var1, ptr)
                 assign_ops.append(tf.assign(var1, var_weights, validate_shape=True))
+            # i+=1
+
 
 
         else:
@@ -86,7 +88,8 @@ if __name__ == '__main__':
 
     print('darknet weight file is loading....')
     inputs = tf.placeholder(tf.float32, [1, 416, 416, 3])
-    print('Yolo2 is loading..')
+    print('Yolo3 is loading..')
+
     model = Yolo3(input_value=inputs,is_training=True)
     print('weight file is open, loading...')
     model_vars = tf.global_variables(scope='yolo3_model')
@@ -95,9 +98,10 @@ if __name__ == '__main__':
     print('create train.saver , loading...')
     saver = tf.train.Saver(tf.global_variables(scope='yolo3_model'))
     sess = tf.Session()
+    sess.run(tf.global_variables_initializer())
     sess.run(load_ops)
     # 将权重保存为ckpt文件
 
     print('start save file, loading ...')
-    saver.save(sess, "./checkpoint/darknet/yolov3.ckpt")
+    saver.save(sess, "./checkpoint/darknet_yolo3/yolov3.ckpt")
     print('is done!')

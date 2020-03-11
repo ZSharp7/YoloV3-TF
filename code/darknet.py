@@ -1,6 +1,7 @@
 # _*_coding:utf-8_*_
 import tensorflow as tf
-from config import cfg
+from code import config
+cfg = config.cfg
 
 # 1. convolutional 层
 # con2d layer >>  BN layer >> LeakyReluLayer
@@ -53,7 +54,7 @@ def convolutional_layer(input_value, filter, kernel_size, name, is_downsample=Fa
                                        kernel_size=kernel_size, strides=strides,trainable=is_training,
                                        padding=padding)
         if is_bn:
-            input_value = tf.layers.batch_normalization(input_value)
+            input_value = tf.layers.batch_normalization(input_value, training=is_training)
 
         if is_active:
             input_value = tf.nn.leaky_relu(input_value, alpha=0.11)

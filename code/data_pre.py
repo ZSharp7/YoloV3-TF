@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from config import cfg
+from code import config
+cfg = config.cfg
 import cv2
 import os
 import random
@@ -60,6 +61,7 @@ class Dataset:
         :param gt_boxes:
         :return: 图像和框
         '''
+
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
         # image = cv2.imread(image)
         ih, iw = target_size
@@ -96,12 +98,17 @@ class Dataset:
         bbox = [list(map(lambda x: int(float(x)), i.strip().split(','))) for i in content[1:]]
         # 图像增强
         if self.data_aug:  # 是否图像增强
-            # 随机水平翻转
-            image, bbox = self.random_horizontal_flip(np.copy(image), np.copy(bbox))
-            # 随机裁剪
-            image, bbox = self.random_crop(np.copy(image), np.copy(bbox))
-            # 随机变换
-            image, bbox = self.random_translate(np.copy(image), np.copy(bbox))
+            try:
+                # 随机水平翻转
+                image, bbox = self.random_horizontal_flip(np.copy(image), np.copy(bbox))
+                # 随机裁剪
+                image, bbox = self.random_crop(np.copy(image), np.copy(bbox))
+
+                # 随机变换
+                image, bbox = self.random_translate(np.copy(image), np.copy(bbox))
+            except:
+                print('data_aug is error , file: ',file_content)
+                pass
 
         # 缩放图片,定位盒子
         image, bbox = self.image_preporcess(image=image, target_size=[self.train_input_size, self.train_input_size], gt_boxes=np.array(bbox))
@@ -238,8 +245,6 @@ class Dataset:
                     bboxes_xywh[id][bboxes_xywh_id,:4] = bbox_xywh
                     bbox_count[id] += 1
 
-
-
                     has_true = True # 判断是否全部超出阈值范围
 
             if not has_true:
@@ -296,6 +301,7 @@ class Dataset:
             self.startid = 0
             self.endid = 0
             self.flag = True
+            np.random.shuffle(self.label_file)
             raise StopIteration
         if self.endid + self.batch_size >= data_len:
             self.startid = self.endid
@@ -307,7 +313,12 @@ class Dataset:
         datas = label_file[self.startid:self.endid]
         for data in datas:
             image, bboxes = self.get_image_box(file_content=data)
-            one_bbox,two_bbox,three_bbox,one_recover,two_recover,three_recover = self.anchor_gt(bboxes)
+            try:
+                one_bbox,two_bbox,three_bbox,one_recover,two_recover,three_recover = self.anchor_gt(bboxes)
+            except:
+                print('data',data)
+                one_bbox,two_bbox,three_bbox,one_recover,two_recover,three_recover = self.anchor_gt(bboxes)
+                # return self.__next__()
             batch_one_bbox[ids,:,:,:,:] = one_bbox
             batch_two_bbox[ids,:,:,:,:] = two_bbox
             batch_three_bbox[ids,:,:,:,:] = three_bbox
@@ -317,10 +328,8 @@ class Dataset:
             batch_three_recover[ids,:,:] = three_recover
             ids += 1
 
-
+        # 52,26,13
         return batch_one_bbox, batch_two_bbox, batch_three_bbox, batch_image, batch_one_recover, batch_two_recover, batch_three_recover
-
-
 
 
     def __iter__(self):

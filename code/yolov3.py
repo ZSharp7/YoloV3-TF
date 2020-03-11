@@ -1,10 +1,11 @@
 # _*_coding:utf-8_*_
-import darknet
+from code import darknet
 import tensorflow as tf
-import data_pre
-from config import cfg
+from code import data_pre
+from code import config
+cfg = config.cfg
 import numpy as np
-import mobilenet
+from code import mobilenet
 # _anchors = [[10, 13], [16, 30], [33, 23],
 #             [30, 61], [62, 45], [59, 119],
 #             [116, 90], [156, 198], [373, 326]]
@@ -21,10 +22,14 @@ class Yolo3:
         self.backbone = cfg.Main.backbone
         self.is_training = is_training
         with tf.variable_scope('yolo3_model'):
+            # 52,26,13
             self.conv_one, self.conv_two, self.conv_three = self.__network()
-            self.pre_one = self.__yolo_layer(self.conv_one, self.strides[0], self.anchors[6:9])
+            # 52,26,13
+            self.pre_one = self.__yolo_layer(self.conv_one, self.strides[0], self.anchors[0:3])
+
             self.pre_two = self.__yolo_layer(self.conv_two, self.strides[1], self.anchors[3:6])
-            self.pre_three = self.__yolo_layer(self.conv_three, self.strides[2], self.anchors[3:6])
+            # error
+            self.pre_three = self.__yolo_layer(self.conv_three, self.strides[2], self.anchors[6:9])
 
     def __network(self):
         '''
@@ -36,7 +41,7 @@ class Yolo3:
             route1, route2, inputs = darknet.backbone(input_value=self.inputs,is_training=self.is_training)
         else:
             route1, route2, inputs = mobilenet.backbone(input_value=self.inputs,is_training=self.is_training)
-        conv_three, inputs = self.convolutional_set(inputs, 512, len(self.classes), 'conv_one')
+        conv_three, inputs = self.convolutional_set(inputs, 512, len(self.classes), 'conv_three')
 
         # inputs = self.upsample(inputs, name='upsample_one')
         inputs = tf.concat([inputs, route2], axis=-1)
@@ -45,7 +50,9 @@ class Yolo3:
 
         # inputs = self.upsample(inputs, name='upsample_two')
         inputs = tf.concat([inputs, route1], axis=-1)
-        conv_one, _ = self.convolutional_set(inputs, 128, len(self.classes), 'conv_three')
+        conv_one, _ = self.convolutional_set(inputs, 128, len(self.classes), 'conv_one')
+
+        # 13,26,52
 
         return conv_one, conv_two, conv_three
 
@@ -131,8 +138,9 @@ class Yolo3:
 
             pre = darknet.convolutional_layer(input_value=input_value, filter=filter * 2, kernel_size=3,
                                               name='conv_pre1')
+            ## error
             pre = darknet.convolutional_layer(input_value=pre, filter=3 * (5 + n_classes), kernel_size=1,
-                                              name='conv_pre2')
+                                              name='conv_pre2',is_bn=False,is_active=False)
 
             input_value = darknet.convolutional_layer(input_value=input_value, filter=filter // 2, kernel_size=1,
                                                       name='conv6')
@@ -224,7 +232,8 @@ class Yolo3:
         conv_pro = conv[:,:,:,:,5:] # cls
 
         pre_xywh = pre[:,:,:,:,0:4] # xywh
-        pre_conf = conv[:,:,:,:,4:5] #
+        # error pre->conv
+        pre_conf = pre[:,:,:,:,4:5] #
 
         bbox_xywh = bbox[:,:,:,:,0:4] # xywh
         bbox_bool = bbox[:,:,:,:,4:5] # 0 或 1

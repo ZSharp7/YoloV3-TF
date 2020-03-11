@@ -2,11 +2,14 @@ import numpy as np
 import tensorflow as tf
 from PIL import Image
 from code import data_pre
-from code.config import cfg
 from code.yolov3 import Yolo3
+from code import config
+cfg = config.cfg
 import random
 import cv2
 import colorsys
+import os
+from tensorflow.python import pywrap_tensorflow
 from seaborn import color_palette
 from PIL import Image, ImageDraw, ImageFont
 
@@ -89,12 +92,15 @@ def nms(bboxes, iou_threshold, sigma=0.3, method='nms'):
 
     return best_bboxes
 
-def draw_bbox(image, bboxes, classes, show_label=True):
+def draw_bbox(image, bboxes,is_save, classes,name,save_path='', show_label=True):
     """
     cv2画出来, 并show
     bboxes: [x_min, y_min, x_max, y_max, probability, cls_id]
     """
-
+    if os.path.isdir(save_path + name):
+        pass
+    else:
+        os.mkdir(save_path + name)
     num_classes = len(classes)
     image_h, image_w, _ = image.shape
     hsv_tuples = [(1.0 * x / num_classes, 1., 1.) for x in range(num_classes)]
@@ -106,6 +112,7 @@ def draw_bbox(image, bboxes, classes, show_label=True):
     random.seed(None)
 
     for i, bbox in enumerate(bboxes):
+
         coor = np.array(bbox[:4], dtype=np.int32)
         fontScale = 0.5
         score = bbox[4]
@@ -113,7 +120,14 @@ def draw_bbox(image, bboxes, classes, show_label=True):
         bbox_color = colors[class_ind]
         bbox_thick = int(0.6 * (image_h + image_w) / 600)
         c1, c2 = (coor[0], coor[1]), (coor[2], coor[3])
+        if is_save:
+            try:
+                cv2.imwrite('%s%s_%d.jpg'%(save_path+name+'/',classes[class_ind],i), image[c1[1]:c2[1], c1[0]:c2[0]])
+            except:
+                pass
+            continue
         cv2.rectangle(image, c1, c2, bbox_color, bbox_thick)
+
 
         if show_label:
             bbox_mess = '%s: %.2f' % (classes[class_ind], score)
@@ -143,7 +157,6 @@ def postprocess_boxes(pred_bbox, org_img_shape, input_size, score_threshold):
 
     dw = (input_size - resize_ratio * org_w) / 2
     dh = (input_size - resize_ratio * org_h) / 2
-
     pred_coor[:, 0::2] = 1.0 * (pred_coor[:, 0::2] - dw) / resize_ratio
     pred_coor[:, 1::2] = 1.0 * (pred_coor[:, 1::2] - dh) / resize_ratio
 
@@ -172,7 +185,8 @@ def postprocess_boxes(pred_bbox, org_img_shape, input_size, score_threshold):
 
 
 class Test:
-    def __init__(self,images_path,model_path,output_size):
+
+    def __init__(self,images_path,model_path,output_size,is_save=False):
         self.classes = data_pre.get_classes(cfg.Main.classes)  # 类别
         self.anchors = data_pre.get_anchors(cfg.Main.anchors)  # anchors
         self.images_path = images_path
@@ -182,6 +196,9 @@ class Test:
         self.output_size = output_size
         self.ses = tf.Session()
         self.is_training = cfg.Test.is_training
+        self.is_save = is_save
+        self.nms_score = cfg.Test.nms_score
+        self.bboxes_score = cfg.Test.bboxes_score
         np.random.seed(21)
 
         with tf.name_scope('inputs'):
@@ -191,36 +208,65 @@ class Test:
             self.model = Yolo3(input_value=self.input_images,is_training=self.is_training)
 
         with tf.name_scope('saver_log'):
+            # global_variables = tf.global_variables()
+            # ckpt_variables = self.get_all_variables_name_from_ckpt(self.model_path)
+            # print(ckpt_variables)
+            # for ids,value in enumerate(global_variables):
+            #     print('global:',value)
+            #     print('ckpt:',ckpt_variables[ids])
+            #     print('\n')
+            #
+            # os._exit(0)
+
             self.saver = tf.train.Saver(tf.global_variables())
+
+
+    def get_all_variables_name_from_ckpt(self,ckpt_path):
+        reader = pywrap_tensorflow.NewCheckpointReader(ckpt_path)
+        all_var = reader.get_variable_to_shape_map()
+        # reader.get_variable_to_dtype_map()
+        return all_var
     def test(self):
         images_batch = image_load(self.images_path, self.output_size)
-        original_image = cv2.imread(self.images_path[2])
-        original_image = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB)
-        original_image_size = original_image.shape[:2]
-        try:
-            print('model is restore..')
-            self.saver.restore(self.ses, self.model_path)
-        except:
-            print('no model_ckpt file...')
-            self.ses.run(tf.global_variables_initializer())
-        # bboxes = []
-        bboxes = self.ses.run([self.model.pre_one,self.model.pre_two,self.model.pre_three], feed_dict={self.input_images: images_batch})
-        pred_bbox = np.concatenate([np.reshape(bboxes[2][0], (-1, 5 + len(self.classes))),
-                                    np.reshape(bboxes[2][1], (-1, 5 + len(self.classes))),
-                                    np.reshape(bboxes[2][2], (-1, 5 + len(self.classes)))], axis=0)
-        bboxes = postprocess_boxes(pred_bbox, original_image_size, self.output_size, 0.2)
-        bboxes = nms(bboxes, 0.45)
-        image = draw_bbox(original_image, bboxes, classes=self.classes)
 
+        # try:
+        # self.ses.run(tf.global_variables_initializer())
+        print('model is restore..')
+        print(self.model_path)
+        self.saver.restore(self.ses, self.model_path)
+        # except:
+        #     print('no model_ckpt file...')
+        #     self.ses.run(tf.global_variables_initializer())
+        one,two,three = self.ses.run([self.model.pre_one, self.model.pre_two, self.model.pre_three],
+                              feed_dict={self.input_images: images_batch})
+        # print(ne.shape)
+        for id in range(len(self.images_path)):
+            name = self.images_path[id].split('/')[-1].split('.')[0]
+            original_image = cv2.imread(self.images_path[id])
+            original_image = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB)
+            original_image_size = original_image.shape[:2]
 
+            # bboxes = []
 
+            pred_bbox = np.concatenate([np.reshape(one[id], (-1, 5 + len(self.classes))),
+                                        np.reshape(two[id], (-1, 5 + len(self.classes))),
+                                        np.reshape(three[id], (-1, 5 + len(self.classes)))], axis=0)
+            # bboxes = postprocess_boxes(pred_bbox, original_image_size, self.output_size, self.bboxes_score)
+            # bboxes = nms(bboxes, self.nms_score)
+            bboxes = postprocess_boxes(pred_bbox, original_image_size, self.output_size, 0.1)
+            bboxes = nms(bboxes, 0)
+            self.is_save=False
+            image = draw_bbox(original_image, bboxes,name=name,is_save=self.is_save,save_path='./data/test/result/', classes=self.classes)
 
-        image = Image.fromarray(image)
-        image.show()
+            if self.is_save == False:
+                image = Image.fromarray(image)
+                image.show()
 
         # draw_boxes(self.images_path, pred_bbox, self.classes, (self.output_size,self.output_size))
 if __name__ == '__main__':
-    images = ['./data/test/images/1.jpg','./data/test/images/2.jpg','./data/test/images/3.jpg',]
-    Test(images,output_size=416,model_path=cfg.Test.model_savefile).test()
+
+    images = [ './data/test/images/'+i for i in os.listdir('./data/test/images/')]
+
+    Test(images,output_size=416,model_path=cfg.Test.model_savefile,is_save=True).test()
 
 
